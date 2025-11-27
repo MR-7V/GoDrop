@@ -1,0 +1,18 @@
+# Binaries
+/main
+*.exe
+*.out
+
+# Uploaded files
+data/
+
+# Viper config cache
+*.env
+
+# IDE / editor files
+.idea/
+.vscode/
+
+# MacOS junk
+.DS_Store
+
