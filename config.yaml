@@ -1,0 +1,9 @@
+server:
+  port: 8080
+
+storage:
+  path: "./data"
+
+auth: 
+  username: "admin"
+  password: "admin"
