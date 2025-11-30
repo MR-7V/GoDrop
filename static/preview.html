@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Preview</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 p-6">
+  <div class="max-w-4xl mx-auto bg-white p-6 rounded shadow">
+    <h2 class="text-xl font-bold mb-4">Preview: <span id="filename"></span></h2>
+    <div id="preview-container" class="mt-4"></div>
+
+    <div class="mt-6">
+      <a href="/" class="text-blue-600 hover:underline">← Home</a>
+    </div>
+  </div>
+
+  <script>
+    const file = decodeURIComponent(window.location.pathname.split("/").pop());
+    document.getElementById("filename").innerText = file;
+    console.log(file);
+
+    async function loadPreview() {
+      const typeRes = await fetch('/preview/type/' + encodeURIComponent(file));
+      const fileType = await typeRes.text();
+
+      const container = document.getElementById("preview-container");
+      if (fileType.startsWith("image/")) {
+        container.innerHTML = `
+          <img src="/preview/raw/${encodeURIComponent(file)}" 
+               class="max-w-full rounded shadow">
+        `;
+      }
+      else if (fileType === "application/pdf") {
+        container.innerHTML = `
+          <embed src="/preview/raw/${encodeURIComponent(file)}" 
+                 type="application/pdf" 
+                 class="w-full h-[600px] rounded shadow" />
+        `;
+      }
+      else if (fileType.startsWith("text/")) {
+        const txt = await fetch('/preview/raw/' + encodeURIComponent(file))
+                            .then(r => r.text());
+
+        container.innerHTML = `
+          <pre class="bg-gray-100 p-4 rounded whitespace-pre-wrap border">${txt}</pre>
+        `;
+      }
+      else {
+        container.innerHTML = `
+          <p class="text-gray-600">No preview available for this file type.</p>
+        `;
+      }
+    }
+    loadPreview();
+  </script>
+</body>
+
+</html>

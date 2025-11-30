@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"strings"
 	"net/url"
+	"mime"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/spf13/viper"
@@ -44,7 +45,7 @@ func main(){
 	
 	r.Group(func(r chi.Router){
 		r.Use(func(next http.Handler) http.Handler {
-        return basicAuthMiddleware(next, username, password)
+      return basicAuthMiddleware(next, username, password)
     })
 
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
@@ -72,6 +73,22 @@ func main(){
 			filename := chi.URLParam(r, "filename")
 			log.Printf("filename:"+filename)
 			deleteHandler(w, r, storagePath)
+		})
+
+		r.Get("/preview/{filename}", func(w http.ResponseWriter, r *http.Request) {
+    	http.ServeFile(w, r, "static/preview.html")
+		})
+
+		r.Get("/preview/type/{filename}", func(w http.ResponseWriter, r *http.Request){
+			previewTypeHandler(w, r, storagePath);
+		})
+
+		r.Get("/preview/raw/{filename}", func(w http.ResponseWriter, r *http.Request) {
+    	rawPreviewHandler(w, r, storagePath)
+		})
+
+		r.Put("/files/{filename}", func(w http.ResponseWriter, r *http.Request){
+			renameHandler(w, r, storagePath)
 		})
 	})
 	fmt.Println("server running on http://localhost:8080")  // Log server start
@@ -190,3 +207,79 @@ func basicAuthMiddleware(next http.Handler, username, password string) http.Hand
 
 
 
+func previewTypeHandler(w http.ResponseWriter, r *http.Request, storagePath string){
+	encoded := chi.URLParam(r, "filename")
+	filename, err := url.QueryUnescape(encoded)
+	if err != nil{
+		http.Error(w, "Invalid filename", http.StatusBadRequest)
+		return
+	}
+	//filePath := filepath.Join(storagePath, filename)
+	mimeType := mime.TypeByExtension(filepath.Ext(filename))
+	if mimeType == ""{
+		mimeType = "application/octet-stream"
+	}
+	w.Write([] byte(mimeType))
+}
+
+
+func rawPreviewHandler(w http.ResponseWriter, r *http.Request, storagePath string) {
+    encoded := chi.URLParam(r, "filename")
+    filename, err := url.QueryUnescape(encoded)
+    if err != nil {
+        http.Error(w, "Invalid filename", http.StatusBadRequest)
+        return
+    }
+    filePath := filepath.Join(storagePath, filename)
+    mimeType := mime.TypeByExtension(filepath.Ext(filename))
+    if mimeType == "" {
+        mimeType = "application/octet-stream"
+    }    
+		w.Header().Set("Content-Type", mimeType)
+    http.ServeFile(w, r, filePath)
+}
+
+
+func renameHandler(w http.ResponseWriter, r *http.Request, storagePath string){
+	encodedOld := chi.URLParam(r, "filename")
+	oldName, err := url.QueryUnescape(encodedOld)
+	if err != nil {
+		http.Error(w, "Invalid Old Filename", http.StatusBadRequest)
+		return
+	}
+
+	newName := r.URL.Query().Get("new")
+	if newName == "" {
+			http.Error(w, "Missing new name", http.StatusBadRequest)
+			return
+	}
+
+	// Basic security: prevent path traversal
+	if strings.Contains(oldName, "..") || strings.Contains(newName, "..") {
+			http.Error(w, "Invalid filename", http.StatusBadRequest)
+			return
+	}
+
+	oldPath := filepath.Join(storagePath, oldName)
+	newPath := filepath.Join(storagePath, newName)
+
+	// Check if original exists
+	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
+			http.Error(w, "Original file not found", http.StatusNotFound)
+			return
+	}
+
+	// Avoid overwriting
+	if _, err := os.Stat(newPath); err == nil {
+			http.Error(w, "New filename already exists", http.StatusConflict)
+			return
+	}
+
+	// Perform rename
+	if err := os.Rename(oldPath, newPath); err != nil {
+			http.Error(w, "Rename failed", http.StatusInternalServerError)
+			return
+	}
+
+	fmt.Fprintf(w, "Renamed to %s", newName) 
+}

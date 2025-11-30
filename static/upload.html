@@ -24,7 +24,7 @@
           <thead class="bg-gray-200 text-gray-700">
               <tr>
                   <th class="py-3 px-4 text-left">File Name</th>
-                  <th class="py-3 px-4 text-right">Download</th>
+                  <th class="py-3 px-4 text-right">Actions</th>
               </tr>
           </thead>
           <tbody id="file-table" class="divide-y divide-gray-200"></tbody>
@@ -46,7 +46,7 @@
         }
 
 
-        async function loadFiles() {
+        async function loadFiles(){
             const res = await fetch('/files');
             const files = await res.json();
             const table = document.getElementById('file-table');
@@ -57,6 +57,14 @@
                 row.innerHTML = `
                     <td class="py-3 px-4">${file}</td>
                     <td class="py-3 px-4 text-right space-x-4">
+                      <a href="/preview/${file}"
+                        class="text-green-600 hover:underline"
+                        >Preview
+                      </a>
+                      <button onclick="renameFile('${file}')" 
+                        class="text-yellow-600 hover:text-yellow-800">
+                        Rename
+                      </button>
                       <a href="/files/${file}" download 
                         class="text-blue-600 hover:underline"
                         >Download
@@ -66,9 +74,22 @@
                       >Delete</a>
                     </td>
                 `;
-
                 table.appendChild(row);
             });
+        }
+
+        async function renameFile(oldName){
+          const newName = prompt("Enter New Name");
+          if(!newName || newName.trim() == "") return;
+          const res = await fetch('/files/' + encodeURIComponent(oldName) + '?new=' + encodeURIComponent(newName), {
+            method: 'PUT'
+          });
+          if (res.ok) {
+            alert("Renamed successfully!");
+            location.reload();
+          } else {
+            alert("Rename failed");
+          }
         }
 
         loadFiles();
